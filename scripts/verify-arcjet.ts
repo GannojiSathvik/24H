@@ -3,13 +3,28 @@ async function main() {
     const url = "http://localhost:3000/api/tickets/buy";
     console.log("🚀 Testing Arcjet Rate Limit...");
 
-    // We need valid data to pass validation, regardless of whether Arcjet blocks us or not
-    // (Arcjet blocks first, but if it passes, we don't want 400 Bad Request)
-    // Assuming ID 1 exists for buyer/seller/event from previous seeds
+
+    // Dynamic fetch of IDs to avoid hardcoding mismatches
+    const { db } = await import("../db");
+    const { users, events } = await import("../db/schema");
+    const { sql } = await import("drizzle-orm");
+
+    console.log("🔍 Fetching latest test data from DB...");
+    const [buyer] = await db.select().from(users).offset(1).limit(1); // Get 2nd user (Bob)
+    const [seller] = await db.select().from(users).limit(1); // Get 1st user (Alice)
+    const [event] = await db.select().from(events).limit(1);
+
+    if (!buyer || !event || !seller) {
+        console.error("❌ No seed data found! Run 'npx tsx scripts/seed.ts' first.");
+        process.exit(1);
+    }
+
+    console.log(`   -> Using Buyer ID: ${buyer.id}, Event ID: ${event.id}`);
+
     const payload = {
-        buyerId: 5, // Bob (from recent seed)
-        eventId: 3, // Coldplay (from recent seed)
-        sellerId: 4, // Alice (from recent seed)
+        buyerId: buyer.id,
+        eventId: event.id,
+        sellerId: seller.id,
         price: 150
     };
 
