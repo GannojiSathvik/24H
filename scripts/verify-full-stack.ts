@@ -3,8 +3,8 @@ config({ path: ".env" });
 
 async function main() {
     // Dynamic imports to ensure dotenv is loaded first
-    const { db } = await import("../../db");
-    const { users, tickets, events } = await import("../../db/schema");
+    const { db } = await import("../db");
+    const { users, tickets, events } = await import("../db/schema");
     const { mintTicketOnChain } = await import("../lib/blockchain");
     const { eq } = await import("drizzle-orm");
 

@@ -3,10 +3,24 @@ import { db } from "@/db"; // Use alias if configured, or relative path "../../d
 import { tickets, users } from "@/db/schema";
 import { mintTicketOnChain } from "@/lib/blockchain";
 import { eq } from "drizzle-orm";
+import aj from "@/lib/arcjet";
 
 // Mock implementation of ticket buying
 export async function POST(request: Request) {
     try {
+        // 1. Security Check: Arcjet
+        const decision = await aj.protect(request, { requested: 1 });
+
+        if (decision.isDenied()) {
+            if (decision.reason.isRateLimit()) {
+                return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+            } else if (decision.reason.isBot()) {
+                return NextResponse.json({ error: "Bot Detected" }, { status: 403 });
+            } else {
+                return NextResponse.json({ error: "Access Denied" }, { status: 403 });
+            }
+        }
+
         const body = await request.json();
         const { buyerId, eventId, price, sellerId } = body;
 
@@ -14,26 +28,27 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        // 1. Get Buyer's Wallet Address
+        // 2. Get Buyer's Wallet Address
         const [buyer] = await db.select().from(users).where(eq(users.id, buyerId)).limit(1);
+        // User schema might verify by walletAddress in some contexts, keeping id for DB consistency
         if (!buyer || !buyer.walletAddress) {
             return NextResponse.json({ error: "Buyer not found or missing wallet address" }, { status: 404 });
         }
 
-        // 2. Create Ticket in Database
+        // 3. Create Ticket in Database
         const [newTicket] = await db.insert(tickets).values({
             eventId,
             sellerId, // In a real buy flow, this might be the event organizer or existing owner
             // For now, valid defaults:
             ticketHash: `hash-${Date.now()}`,
             encryptedData: "encrypted-content-placeholder",
-            status: "SOLD",
+            status: "SOLD", // Status as requested for sold ticket
             minPrice: price,
         }).returning();
 
         console.log(`💾 Ticket saved to DB: ID ${newTicket.id}`);
 
-        // 3. Mint on Blockchain
+        // 4. Mint on Blockchain
         // We use the buyer's wallet address from the DB
         const blockchainResult = await mintTicketOnChain(buyer.walletAddress, price);
 
@@ -41,7 +56,7 @@ export async function POST(request: Request) {
             success: true,
             data: {
                 databaseId: newTicket.id,
-                ...blockchainResult
+                txHash: blockchainResult.transactionHash
             }
         });
 

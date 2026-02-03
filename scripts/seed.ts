@@ -3,8 +3,8 @@ config({ path: ".env" });
 
 async function main() {
     // Dynamic imports to ensure dotenv is loaded first
-    const { db } = await import("../../db");
-    const { users, events, tickets, bids } = await import("../../db/schema");
+    const { db } = await import("../db");
+    const { users, events, tickets, bids } = await import("../db/schema");
 
     console.log("🌱 Starting seed...");
 
@@ -20,14 +20,14 @@ async function main() {
         console.log("👤 Creating users...");
         const [alice] = await db.insert(users).values({
             name: "Alice",
-            walletAddress: "0xAliceWallet",
+            walletAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", // Hardhat Account #0
             latitude: 12.97,
             longitude: 77.59,
         }).returning();
 
         const [bob] = await db.insert(users).values({
             name: "Bob",
-            walletAddress: "0xBobWallet",
+            walletAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", // Hardhat Account #1
             latitude: 12.98,
             longitude: 77.60,
         }).returning();
